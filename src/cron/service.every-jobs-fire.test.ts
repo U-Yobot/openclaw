@@ -1,5 +1,3 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { CronService } from "./service.js";
 import {
@@ -7,6 +5,7 @@ import {
   createCronStoreHarness,
   createNoopLogger,
   installCronTestHooks,
+  writeCronStoreSnapshot,
 } from "./service.test-harness.js";
 
 const noopLogger = createNoopLogger();
@@ -36,10 +35,28 @@ describe("CronService interval/cron jobs fire on time", () => {
     enqueueSystemEvent: ReturnType<typeof vi.fn>,
     expectedText: string,
   ) => {
-    expect(enqueueSystemEvent).toHaveBeenCalledWith(
-      expectedText,
-      expect.objectContaining({ agentId: undefined }),
-    );
+    const matchingCall = enqueueSystemEvent.mock.calls.find(([text]) => text === expectedText);
+    if (!matchingCall) {
+      throw new Error(`missing system event ${expectedText}`);
+    }
+    const options = matchingCall[1] as Record<string, unknown>;
+    expect(options.agentId).toBeUndefined();
+    expect(options.sessionKey).toBeUndefined();
+    expect(typeof options.contextKey).toBe("string");
+    expect(String(options.contextKey).startsWith("cron:")).toBe(true);
+  };
+
+  const countMainSystemEvents = (
+    enqueueSystemEvent: ReturnType<typeof vi.fn>,
+    expectedText: string,
+  ): number => {
+    let count = 0;
+    for (const [text] of enqueueSystemEvent.mock.calls) {
+      if (text === expectedText) {
+        count++;
+      }
+    }
+    return count;
   };
 
   it("fires an every-type main job when the timer fires a few ms late", async () => {
@@ -117,54 +134,45 @@ describe("CronService interval/cron jobs fire on time", () => {
   it("keeps legacy every jobs due while minute cron jobs recompute schedules", async () => {
     const store = await makeStorePath();
     const enqueueSystemEvent = vi.fn();
-    const requestHeartbeatNow = vi.fn();
+    const requestHeartbeat = vi.fn();
     const nowMs = Date.parse("2025-12-13T00:00:00.000Z");
 
-    await fs.mkdir(path.dirname(store.storePath), { recursive: true });
-    await fs.writeFile(
-      store.storePath,
-      JSON.stringify(
+    await writeCronStoreSnapshot({
+      storePath: store.storePath,
+      jobs: [
         {
-          version: 1,
-          jobs: [
-            {
-              id: "legacy-every",
-              name: "legacy every",
-              enabled: true,
-              createdAtMs: nowMs,
-              updatedAtMs: nowMs,
-              schedule: { kind: "every", everyMs: 120_000 },
-              sessionTarget: "main",
-              wakeMode: "now",
-              payload: { kind: "systemEvent", text: "sf-tick" },
-              state: { nextRunAtMs: nowMs + 120_000 },
-            },
-            {
-              id: "minute-cron",
-              name: "minute cron",
-              enabled: true,
-              createdAtMs: nowMs,
-              updatedAtMs: nowMs,
-              schedule: { kind: "cron", expr: "* * * * *", tz: "UTC" },
-              sessionTarget: "main",
-              wakeMode: "now",
-              payload: { kind: "systemEvent", text: "minute-tick" },
-              state: { nextRunAtMs: nowMs + 60_000 },
-            },
-          ],
+          id: "legacy-every",
+          name: "legacy every",
+          enabled: true,
+          createdAtMs: nowMs,
+          updatedAtMs: nowMs,
+          schedule: { kind: "every", everyMs: 120_000 },
+          sessionTarget: "main",
+          wakeMode: "now",
+          payload: { kind: "systemEvent", text: "sf-tick" },
+          state: { nextRunAtMs: nowMs + 120_000 },
         },
-        null,
-        2,
-      ),
-      "utf-8",
-    );
+        {
+          id: "minute-cron",
+          name: "minute cron",
+          enabled: true,
+          createdAtMs: nowMs,
+          updatedAtMs: nowMs,
+          schedule: { kind: "cron", expr: "* * * * *", tz: "UTC" },
+          sessionTarget: "main",
+          wakeMode: "now",
+          payload: { kind: "systemEvent", text: "minute-tick" },
+          state: { nextRunAtMs: nowMs + 60_000 },
+        },
+      ],
+    });
 
     const cron = new CronService({
       storePath: store.storePath,
       cronEnabled: true,
       log: noopLogger,
       enqueueSystemEvent,
-      requestHeartbeatNow,
+      requestHeartbeat,
       runIsolatedAgentJob: vi.fn(async () => ({ status: "ok" as const })),
     });
 
@@ -181,10 +189,8 @@ describe("CronService interval/cron jobs fire on time", () => {
     const sfRun = await cron.run("legacy-every", "due");
     expect(sfRun).toEqual({ ok: true, ran: true });
 
-    const sfRuns = enqueueSystemEvent.mock.calls.filter((args) => args[0] === "sf-tick").length;
-    const minuteRuns = enqueueSystemEvent.mock.calls.filter(
-      (args) => args[0] === "minute-tick",
-    ).length;
+    const sfRuns = countMainSystemEvents(enqueueSystemEvent, "sf-tick");
+    const minuteRuns = countMainSystemEvents(enqueueSystemEvent, "minute-tick");
     expect(minuteRuns).toBeGreaterThan(0);
     expect(sfRuns).toBeGreaterThan(0);
 
@@ -192,9 +198,7 @@ describe("CronService interval/cron jobs fire on time", () => {
     const sfJob = jobs.find((job) => job.id === "legacy-every");
     expect(sfJob?.state.lastStatus).toBe("ok");
     expect(sfJob?.schedule.kind).toBe("every");
-    if (sfJob?.schedule.kind === "every") {
-      expect(sfJob.schedule.anchorMs).toBe(nowMs);
-    }
+    expect(sfJob?.state.nextRunAtMs).toBe(nowMs + 8 * 60_000);
 
     cron.stop();
     await store.cleanup();

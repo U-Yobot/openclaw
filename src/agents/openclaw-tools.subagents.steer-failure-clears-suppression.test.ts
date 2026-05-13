@@ -11,13 +11,12 @@ import {
   listSubagentRunsForRequester,
   resetSubagentRegistryForTests,
 } from "./subagent-registry.js";
-import "./test-helpers/fast-core-tools.js";
 import { createSubagentsTool } from "./tools/subagents-tool.js";
 
 describe("openclaw-tools: subagents steer failure", () => {
   beforeEach(() => {
     resetSubagentRegistryForTests();
-    callGatewayMock.mockReset();
+    callGatewayMock.mockClear();
     const storePath = path.join(
       os.tmpdir(),
       `openclaw-subagents-steer-${Date.now()}-${Math.random().toString(16).slice(2)}.json`,
@@ -65,12 +64,16 @@ describe("openclaw-tools: subagents steer failure", () => {
       message: "new direction",
     });
 
-    expect(result.details).toMatchObject({
-      status: "error",
-      action: "steer",
-      runId: expect.any(String),
-      error: "dispatch failed",
-    });
+    const details = result.details as {
+      status?: string;
+      action?: string;
+      runId?: unknown;
+      error?: string;
+    };
+    expect(details.status).toBe("error");
+    expect(details.action).toBe("steer");
+    expect(details.runId).toBeTypeOf("string");
+    expect(details.error).toBe("dispatch failed");
 
     const runs = listSubagentRunsForRequester("agent:main:main");
     expect(runs).toHaveLength(1);
