@@ -92,11 +92,26 @@ describe("addWsClient", () => {
 });
 
 describe("removeWsClient", () => {
-  it("removes client from session", () => {
+  it("removes client from session and deletes idle session with empty buffer", () => {
     const store = createSessionStore();
     const ws = { send: vi.fn(), readyState: 1 } as unknown as import("ws").WebSocket;
     addWsClient(store, "s1", ws);
     removeWsClient(store, "s1", ws);
-    expect(store.sessions.get("s1")?.wsClients.size).toBe(0);
+    // Session is deleted when no clients remain and reply buffer is empty.
+    expect(store.sessions.has("s1")).toBe(false);
+  });
+
+  it("keeps session when reply buffer is non-empty after client removal", () => {
+    const store = createSessionStore();
+    const ws = { send: vi.fn(), readyState: 1 } as unknown as import("ws").WebSocket;
+    addWsClient(store, "s1", ws);
+    // Add a reply to the buffer of a second (hypothetical) scenario:
+    // deliver after the client is registered so it goes live, but simulate
+    // a pending buffer by poking it directly.
+    store.sessions.get("s1")!.replyBuffer.push({ text: "pending", messageId: "m1" });
+    removeWsClient(store, "s1", ws);
+    // Session must survive because the reply buffer still has data.
+    expect(store.sessions.has("s1")).toBe(true);
+    expect(store.sessions.get("s1")?.replyBuffer).toHaveLength(1);
   });
 });

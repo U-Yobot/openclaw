@@ -2,6 +2,7 @@ import type { WebSocket } from "ws";
 import type { InboundQueueMessage } from "./protocol.js";
 
 const MAX_REPLY_BUFFER = 100;
+const MAX_INBOUND_QUEUE_SAFETY = 1000;
 
 type ReplyEntry = { text: string; messageId: string };
 
@@ -59,6 +60,18 @@ export function enqueueInboundMessage(
       cursor: store.globalCursor,
     });
   }
+
+  // Prune messages no remaining waiter will ever request.
+  if (store.waiters.length > 0) {
+    const minCursor = Math.min(...store.waiters.map((w) => w.minCursor));
+    store.inboundQueue = store.inboundQueue.filter((m) => m.cursor > minCursor);
+  } else {
+    // No waiters: keep only the most recent safety-net window for late pollers.
+    if (store.inboundQueue.length > MAX_INBOUND_QUEUE_SAFETY) {
+      store.inboundQueue = store.inboundQueue.slice(-MAX_INBOUND_QUEUE_SAFETY);
+    }
+  }
+
   return msg;
 }
 
@@ -97,7 +110,11 @@ export function deliverReply(
   }
   const frame = JSON.stringify({ type: "reply", sessionId, text });
   for (const client of session.wsClients) {
-    client.send(frame);
+    try {
+      client.send(frame);
+    } catch {
+      session.wsClients.delete(client);
+    }
   }
 }
 
@@ -106,10 +123,20 @@ export function addWsClient(store: SessionStore, sessionId: string, ws: WebSocke
   session.wsClients.add(ws);
   const buffered = session.replyBuffer.splice(0);
   for (const { text } of buffered) {
-    ws.send(JSON.stringify({ type: "reply", sessionId, text }));
+    try {
+      ws.send(JSON.stringify({ type: "reply", sessionId, text }));
+    } catch {
+      session.wsClients.delete(ws);
+      break;
+    }
   }
 }
 
 export function removeWsClient(store: SessionStore, sessionId: string, ws: WebSocket): void {
-  store.sessions.get(sessionId)?.wsClients.delete(ws);
+  const session = store.sessions.get(sessionId);
+  if (!session) return;
+  session.wsClients.delete(ws);
+  if (session.wsClients.size === 0 && session.replyBuffer.length === 0) {
+    store.sessions.delete(sessionId);
+  }
 }
