@@ -881,7 +881,7 @@ Validation:
 - `provider` pattern: `^[a-z][a-z0-9_-]{0,63}$`
 - `source: "env"` id pattern: `^[A-Z][A-Z0-9_]{0,127}$`
 - `source: "file"` id: absolute JSON pointer (for example `"/providers/openai/apiKey"`)
-- `source: "exec"` id pattern: `^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$`
+- `source: "exec"` id pattern: `^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,255}$` (supports AWS-style `secret#json_key` selectors)
 - `source: "exec"` ids must not contain `.` or `..` slash-delimited path segments (for example `a/../b` is rejected)
 
 ### Supported credential surface
@@ -1379,10 +1379,10 @@ Split config into multiple files:
 - Array of files: deep-merged in order (later overrides earlier).
 - Sibling keys: merged after includes (override included values).
 - Nested includes: up to 10 levels deep.
-- Paths: resolved relative to the including file, but must stay inside the top-level config directory (`dirname` of `openclaw.json`). Absolute/`../` forms are allowed only when they still resolve inside that boundary.
+- Paths: resolved relative to the including file, but must stay inside the top-level config directory (`dirname` of `openclaw.json`). Absolute/`../` forms are allowed only when they still resolve inside that boundary. Paths must not contain null bytes and must be strictly shorter than 4096 characters before and after resolution.
 - OpenClaw-owned writes that change only one top-level section backed by a single-file include write through to that included file. For example, `plugins install` updates `plugins: { $include: "./plugins.json5" }` in `plugins.json5` and leaves `openclaw.json` intact.
 - Root includes, include arrays, and includes with sibling overrides are read-only for OpenClaw-owned writes; those writes fail closed instead of flattening the config.
-- Errors: clear messages for missing files, parse errors, and circular includes.
+- Errors: clear messages for missing files, parse errors, circular includes, invalid path format, and excessive length.
 
 ---
 

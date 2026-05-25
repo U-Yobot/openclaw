@@ -325,7 +325,7 @@ function createScopedAuthProfileStore(
 }
 
 function buildTraceToolSummary(params: {
-  toolMetas?: Array<{ toolName: string; meta?: string }>;
+  toolMetas?: Array<{ toolName: string; meta?: string; asyncStarted?: boolean }>;
   hadFailure: boolean;
 }): ToolSummaryTrace | undefined {
   if (!params.toolMetas?.length) {
@@ -433,10 +433,15 @@ export async function runEmbeddedPiAgent(
       },
       laneTaskTimeoutMs,
     );
-  const enqueueGlobal = <T>(task: () => Promise<T>, opts?: CommandQueueEnqueueOptions) =>
-    params.enqueue
-      ? params.enqueue(task, withLaneTimeout(opts))
-      : enqueueCommandInLane(globalLane, task, withLaneTimeout(opts));
+  const enqueueGlobal = <T>(task: () => Promise<T>, opts?: CommandQueueEnqueueOptions) => {
+    const globalOpts: CommandQueueEnqueueOptions = {
+      ...opts,
+      priority: sessionQueuePriority,
+    };
+    return params.enqueue
+      ? params.enqueue(task, withLaneTimeout(globalOpts))
+      : enqueueCommandInLane(globalLane, task, withLaneTimeout(globalOpts));
+  };
   const enqueueSession = <T>(task: () => Promise<T>, opts?: CommandQueueEnqueueOptions) => {
     const sessionOpts: CommandQueueEnqueueOptions = { ...opts, priority: sessionQueuePriority };
     return params.enqueue
@@ -1030,6 +1035,7 @@ export async function runEmbeddedPiAgent(
       let lastRunPromptUsage: ReturnType<typeof normalizeUsage> | undefined;
       let autoCompactionCount = 0;
       let lastCompactionTokensAfter: number | undefined;
+      let lastContextBudgetStatus: EmbeddedPiAgentMeta["contextBudgetStatus"];
       let runLoopIterations = 0;
       let overloadProfileRotations = 0;
       let planningOnlyRetryAttempts = 0;
@@ -1639,6 +1645,9 @@ export async function runEmbeddedPiAgent(
             attempt.compactionTokensAfter >= 0
           ) {
             lastCompactionTokensAfter = Math.floor(attempt.compactionTokensAfter);
+          }
+          if (attempt.contextBudgetStatus) {
+            lastContextBudgetStatus = attempt.contextBudgetStatus;
           }
           const activeErrorContext = resolveActiveErrorContext({
             provider,
@@ -2676,6 +2685,7 @@ export async function runEmbeddedPiAgent(
             usage: usageMeta.usage,
             lastCallUsage: usageMeta.lastCallUsage,
             promptTokens: usageMeta.promptTokens,
+            ...(lastContextBudgetStatus ? { contextBudgetStatus: lastContextBudgetStatus } : {}),
             compactionCount: autoCompactionCount > 0 ? autoCompactionCount : undefined,
             compactionTokensAfter: lastCompactionTokensAfter,
           };

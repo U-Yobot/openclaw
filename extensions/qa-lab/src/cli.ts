@@ -78,6 +78,7 @@ async function runQaCoverageReport(opts: {
   json?: boolean;
   tools?: boolean;
   summary?: string;
+  match?: string[];
 }) {
   const runtime = await loadQaLabCliRuntime();
   await runtime.runQaCoverageReportCommand(opts);
@@ -272,7 +273,10 @@ export function registerQaLabCli(program: Command) {
       "CLI backend auth mode for live Claude CLI runs: auto, api-key, or subscription",
     )
     .option("--parity-pack <name>", 'Preset scenario pack; currently only "agentic" is supported')
-    .option("--pack <id>", 'Scenario pack id; currently only "personal-agent" is supported')
+    .option(
+      "--pack <id>",
+      'Scenario pack id; currently "personal-agent" and "observability" are supported',
+    )
     .option("--scenario <id>", "Run only the named QA scenario (repeatable)", collectString, [])
     .option(
       "--enable-plugin <id>",
@@ -401,6 +405,12 @@ export function registerQaLabCli(program: Command) {
     .option("--json", "Print JSON instead of Markdown", false)
     .option("--tools", "Print runtime tool fixture coverage instead of scenario coverage", false)
     .option("--summary <path>", "Runtime qa-suite-summary.json to overlay on --tools coverage")
+    .option(
+      "--match <query>",
+      "Search scenario metadata and print matching qa suite targets (repeatable)",
+      collectString,
+      [],
+    )
     .action(
       async (opts: {
         repoRoot?: string;
@@ -408,6 +418,7 @@ export function registerQaLabCli(program: Command) {
         json?: boolean;
         tools?: boolean;
         summary?: string;
+        match?: string[];
       }) => {
         await runQaCoverageReport(opts);
       },

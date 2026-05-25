@@ -1212,6 +1212,7 @@
                   "plugins/codex-native-plugins",
                   "plugins/codex-computer-use",
                   "plugins/google-meet",
+                  "plugins/meeting-notes",
                   "plugins/webhooks",
                   "plugins/admin-http-rpc",
                   "plugins/voice-call",
@@ -1231,6 +1232,7 @@
                   "plugins/sdk-provider-plugins",
                   "plugins/cli-backend-plugins",
                   "plugins/hooks",
+                  "plugins/plugin-permission-requests",
                   "plugins/adding-capabilities"
                 ]
               },
