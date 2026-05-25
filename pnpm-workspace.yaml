@@ -4,6 +4,8 @@ packages:
   - packages/*
   - extensions/*
 
+confirmModulesPurge: false
+
 minimumReleaseAge: 2880
 
 minimumReleaseAgeExclude:
