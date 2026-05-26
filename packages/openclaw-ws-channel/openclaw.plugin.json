@@ -1,13 +1,32 @@
 {
   "id": "ws-channel",
   "name": "WebSocket Channel",
-  "description": "Connects OpenClaw agents to external apps over WebSocket via a bridge server.",
+  "description": "Connects external apps to OpenClaw agents over WebSocket. Runs an embedded WS server inside the gateway.",
   "activation": {
     "onStartup": false
   },
   "channels": ["ws-channel"],
-  "channelEnvVars": {
-    "ws-channel": ["WS_BRIDGE_URL", "WS_BRIDGE_SECRET"]
+  "channelConfigs": {
+    "ws-channel": {
+      "label": "WebSocket",
+      "description": "Embedded WebSocket server. External apps connect directly — no separate bridge process needed.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "wsPort": { "type": "number" },
+          "wsHost": { "type": "string" },
+          "wsSecret": { "type": "string" },
+          "allowFrom": { "type": "array", "items": { "type": ["string", "number"] } },
+          "defaultTo": { "type": "string" },
+          "name": { "type": "string" },
+          "defaultAccount": { "type": "string" },
+          "accounts": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "uiHints": {}
+    }
   },
   "configSchema": {
     "type": "object",

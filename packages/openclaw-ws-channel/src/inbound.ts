@@ -40,6 +40,9 @@ export async function handleWsInbound(params: {
   });
 
   if (access.ingress.admission !== "dispatch") {
+    console.warn(
+      `[ws-channel] ingress blocked: admission=${access.ingress.admission} session=${sessionId}`,
+    );
     return;
   }
 
@@ -90,6 +93,10 @@ export async function handleWsInbound(params: {
       runtime.channel.reply.dispatchReplyWithBufferedBlockDispatcher,
     delivery: {
       deliver: async (payload) => {
+        console.log(
+          `[ws-channel] deliver called session=${sessionId} payload=`,
+          JSON.stringify(payload),
+        );
         const replyText =
           payload && typeof payload === "object" && "text" in payload
             ? ((payload as { text?: string }).text ?? "")
@@ -103,6 +110,7 @@ export async function handleWsInbound(params: {
         });
       },
       onError: (error) => {
+        console.error(`[ws-channel] delivery error session=${sessionId}:`, error);
         throw error instanceof Error
           ? error
           : new Error(`ws-channel delivery failed: ${String(error)}`);

@@ -1,9 +1,9 @@
 export type WsChannelAccountConfig = {
   name?: string;
   enabled?: boolean;
-  bridgeUrl?: string;
-  bridgeSecret?: string;
-  pollTimeoutMs?: number;
+  wsPort?: number;
+  wsHost?: string;
+  wsSecret?: string;
   allowFrom?: Array<string | number>;
   defaultTo?: string;
 };
@@ -25,8 +25,8 @@ export type ResolvedWsChannelAccount = {
   enabled: boolean;
   configured: boolean;
   name?: string;
-  bridgeUrl: string;
-  bridgeSecret: string;
-  pollTimeoutMs: number;
+  wsPort: number;
+  wsHost: string;
+  wsSecret: string;
   config: WsChannelAccountConfig;
 };

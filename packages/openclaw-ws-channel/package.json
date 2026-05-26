@@ -10,11 +10,16 @@
       "minGatewayVersion": "2026.3.24-beta.2"
     }
   },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
   "devDependencies": {
+    "@types/ws": "^8.5.10",
     "typescript": "^5.4.0",
     "vitest": "^2.0.0"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.json --noCheck",
     "test": "vitest run"
   }
 }

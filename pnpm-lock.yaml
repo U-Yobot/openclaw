@@ -1761,7 +1761,14 @@ importers:
         version: 2.1.9(@types/node@25.9.1)(@vitest/browser@4.1.7(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0))(vitest@4.1.7))(jsdom@29.1.1(@noble/hashes@2.0.1))(lightningcss@1.32.0)
 
   packages/openclaw-ws-channel:
+    dependencies:
+      ws:
+        specifier: ^8.18.0
+        version: 8.20.1
     devDependencies:
+      '@types/ws':
+        specifier: ^8.5.10
+        version: 8.18.1
       typescript:
         specifier: ^5.4.0
         version: 5.9.3

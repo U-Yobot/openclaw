@@ -1,19 +1,18 @@
-// HTTP types matching the bridge server's API contract
+// WebSocket wire protocol between client apps and the embedded WS server
+
+export type InboundWsFrame = {
+  type: "message";
+  sessionId: string;
+  text: string;
+};
+
+export type OutboundWsFrame =
+  | { type: "reply"; sessionId: string; text: string }
+  | { type: "error"; message: string };
+
+// Used by inbound.ts — generated from an InboundWsFrame on arrival
 export type InboundQueueMessage = {
   messageId: string;
   sessionId: string;
   text: string;
-  cursor: number;
-};
-
-export type PollResponse = {
-  messages: InboundQueueMessage[];
-  cursor: number;
-};
-
-export type OutboundBody = {
-  accountId: string;
-  sessionId: string;
-  text: string;
-  messageId: string;
 };

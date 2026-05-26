@@ -5,14 +5,15 @@ import type { CoreConfig, ResolvedWsChannelAccount, WsChannelAccountConfig } fro
 
 export { DEFAULT_ACCOUNT_ID };
 
-const DEFAULT_POLL_TIMEOUT_MS = 10_000;
+const DEFAULT_WS_PORT = 8765;
+const DEFAULT_WS_HOST = "0.0.0.0";
 
 const {
   listAccountIds: listWsChannelAccountIds,
   resolveDefaultAccountId: resolveDefaultWsChannelAccountId,
 } = createAccountListHelpers("ws-channel", {
   normalizeAccountId,
-  implicitDefaultAccount: { channelKeys: ["bridgeUrl"] },
+  implicitDefaultAccount: { channelKeys: ["wsSecret"] },
 });
 
 export { listWsChannelAccountIds, resolveDefaultWsChannelAccountId };
@@ -31,16 +32,17 @@ export function resolveWsChannelAccount(params: {
   });
   const enabled =
     params.cfg.channels?.["ws-channel"]?.enabled !== false && merged.enabled !== false;
-  const bridgeUrl = merged.bridgeUrl?.trim() ?? "";
-  const bridgeSecret = merged.bridgeSecret?.trim() ?? "";
+  const wsSecret = merged.wsSecret?.trim() ?? "";
+  const wsPort = merged.wsPort ?? DEFAULT_WS_PORT;
+  const wsHost = merged.wsHost?.trim() ?? DEFAULT_WS_HOST;
   return {
     accountId,
     enabled,
-    configured: Boolean(bridgeUrl && bridgeSecret),
+    configured: Boolean(wsSecret),
     name: merged.name,
-    bridgeUrl,
-    bridgeSecret,
-    pollTimeoutMs: merged.pollTimeoutMs ?? DEFAULT_POLL_TIMEOUT_MS,
+    wsPort,
+    wsHost,
+    wsSecret,
     config: { ...merged, allowFrom: merged.allowFrom ?? ["*"] },
   };
 }
